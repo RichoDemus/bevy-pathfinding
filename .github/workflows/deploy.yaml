@@ -34,7 +34,7 @@ jobs:
       - name: Create .wasm file
         run: wasm-bindgen --no-typescript --target web --out-name wasm --out-dir target/distribution target/wasm32-unknown-unknown/release/bevy_pathfinding.wasm
       - name: Copy static files
-        run: cp index.html target/distribution; cp -r assets target/distribution
+        run: cp index.html target/distribution
       - name: List files to deploy
         run: tree target/distribution
       - name: Deploy to GitHub Pages
