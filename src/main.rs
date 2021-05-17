@@ -6,7 +6,7 @@ const SIZE: i32 = 10;
 
 fn main() {
     let mut app = App::build();
-        app.insert_resource(ClearColor(Color::GRAY))
+    app.insert_resource(ClearColor(Color::GRAY))
         .insert_resource(WindowDescriptor {
             title: "Pathfinding".to_string(),
             width: 800.,
@@ -16,6 +16,7 @@ fn main() {
             ..Default::default()
         })
         .add_event::<ToggleBlockEvent>()
+        .init_resource::<Materials>()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup.system())
         .add_system_to_stage(CoreStage::PostUpdate, grid_to_transform.system())
@@ -31,6 +32,12 @@ struct MainCamera;
 struct Start;
 struct End;
 struct Block;
+
+#[derive(Default)]
+struct Materials {
+    path: Option<Handle<ColorMaterial>>,
+    block: Option<Handle<ColorMaterial>>,
+}
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 struct Pos {
@@ -64,7 +71,14 @@ struct ToggleBlockEvent {
 
 struct Path;
 
-fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn setup(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut my_materials: ResMut<Materials>,
+) {
+    my_materials.path = Some(materials.add(Color::rgb(1., 1., 1.).into()));
+    my_materials.block = Some(materials.add(Color::rgb(0.5, 0.5, 1.0).into()));
+
     commands
         .spawn_bundle(OrthographicCameraBundle::new_2d())
         .insert(MainCamera);
@@ -127,7 +141,7 @@ fn toggle_block(
     mut my_events: EventReader<ToggleBlockEvent>,
     blocks: Query<(Entity, &Pos), With<Block>>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: Res<Materials>,
 ) {
     for event in my_events.iter() {
         let event: &ToggleBlockEvent = event;
@@ -139,7 +153,7 @@ fn toggle_block(
                 commands
                     .spawn_bundle(SpriteBundle {
                         sprite: Sprite::new(Vec2::new(35., 35.)),
-                        material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+                        material: materials.block.clone().unwrap(),
                         ..Default::default()
                     })
                     .insert(event.pos)
@@ -160,7 +174,7 @@ fn pathfinding(
     blocks: Query<&Pos, With<Block>>,
     paths: Query<Entity, With<Path>>,
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    materials: Res<Materials>,
 ) {
     let start = start.single().expect("No start block");
     let end = end.single().expect("No end block");
@@ -188,7 +202,7 @@ fn pathfinding(
             commands
                 .spawn_bundle(SpriteBundle {
                     sprite: Sprite::new(Vec2::new(5., 5.)),
-                    material: materials.add(Color::rgb(1., 1., 1.).into()),
+                    material: materials.path.clone().unwrap(),
                     ..Default::default()
                 })
                 .insert(pos)
