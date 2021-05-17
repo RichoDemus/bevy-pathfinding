@@ -5,8 +5,8 @@ use std::ops::Not;
 const SIZE: i32 = 10;
 
 fn main() {
-    App::build()
-        .insert_resource(ClearColor(Color::GRAY))
+    let mut app = App::build();
+        app.insert_resource(ClearColor(Color::GRAY))
         .insert_resource(WindowDescriptor {
             title: "Pathfinding".to_string(),
             width: 800.,
@@ -21,8 +21,10 @@ fn main() {
         .add_system_to_stage(CoreStage::PostUpdate, grid_to_transform.system())
         .add_system(mouse_click_system.system())
         .add_system(toggle_block.system())
-        .add_system(pathfinding.system())
-        .run();
+        .add_system(pathfinding.system());
+    #[cfg(target_arch = "wasm32")]
+    app.add_plugin(bevy_webgl2::WebGL2Plugin);
+    app.run();
 }
 
 struct MainCamera;
