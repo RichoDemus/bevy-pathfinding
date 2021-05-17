@@ -1,14 +1,12 @@
-use bevy::input::mouse::MouseButtonInput;
 use bevy::prelude::*;
-use bevy::render::camera::Camera;
 use pathfinding::prelude::*;
 use std::ops::Not;
 
-const SIZE:u8 = 10;
+const SIZE: i32 = 10;
 
 fn main() {
     App::build()
-        .insert_resource(ClearColor(Color::BLACK))
+        .insert_resource(ClearColor(Color::GRAY))
         .insert_resource(WindowDescriptor {
             title: "Pathfinding".to_string(),
             width: 800.,
@@ -34,26 +32,17 @@ struct Block;
 
 #[derive(Eq, PartialEq, Copy, Clone, Hash, Debug)]
 struct Pos {
-    x:u8,
-    y:u8,
+    x: i32,
+    y: i32,
 }
 impl Pos {
-    fn new(x:u8, y:u8) -> Self {
-        debug_assert!(x < SIZE);
-        debug_assert!(y < SIZE);
-        Self {
-            x,
-            y,
-        }
-    }
-
-    fn try_new(x: i8, y: i8) -> Option<Self> {
-        if x < 0 || y < 0 || x >= SIZE as i8 || y >= SIZE as i8 {
+    fn try_new(x: i32, y: i32) -> Option<Self> {
+        if x < 0 || y < 0 || x >= SIZE as i32 || y >= SIZE as i32 {
             None
         } else {
             Some(Self {
-                x: x as u8,
-                y: y as u8,
+                x: x as i32,
+                y: y as i32,
             })
         }
     }
@@ -63,7 +52,7 @@ impl Pos {
     }
 
     fn max(&self) -> bool {
-        self.x == SIZE-1 && self.y == SIZE-1
+        self.x == SIZE - 1 && self.y == SIZE - 1
     }
 }
 
@@ -73,60 +62,59 @@ struct ToggleBlockEvent {
 
 struct Path;
 
-fn setup(
-    mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d()).insert(MainCamera);
+fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+    commands
+        .spawn_bundle(OrthographicCameraBundle::new_2d())
+        .insert(MainCamera);
     commands.spawn_bundle(UiCameraBundle::default());
 
-            commands.spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(Vec2::new(35., 35.)),
-                material: materials.add(Color::rgb(1., 1., 1.).into()),
-                ..Default::default()
-            })
-                .insert(Pos::new(0,0))
-                .insert(Start);
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite::new(Vec2::new(35., 35.)),
+            material: materials.add(Color::rgb(1., 1., 1.).into()),
+            ..Default::default()
+        })
+        .insert(Pos::try_new(0, 0).unwrap())
+        .insert(Start);
+
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite::new(Vec2::new(35., 35.)),
+            material: materials.add(Color::rgb(1., 1., 1.).into()),
+            ..Default::default()
+        })
+        .insert(Pos::try_new(9, 9).unwrap())
+        .insert(End);
 
     commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite::new(Vec2::new(35., 35.)),
-        material: materials.add(Color::rgb(1., 1., 1.).into()),
+        sprite: Sprite::new(Vec2::new(400., 400.)),
+        material: materials.add(Color::rgb(0., 0., 0.).into()),
+        transform: Transform::from_xyz(-20., -20., 1.),
         ..Default::default()
-    })
-        .insert(Pos::new(9,9))
-        .insert(End);
-}
-
-fn grid_to_transform(
-    mut query: Query<(&Pos, &mut Transform)>,
-) {
-    query.for_each_mut(|(pos, mut transform):(&Pos, Mut<Transform>)|{
-        transform.translation.x = ((pos.x as i16 * 40) - 200) as f32;
-        transform.translation.y = ((pos.y as i16 * 40) - 200) as f32;
     });
 }
 
-// bottom left: 200,100
-// top right: 560, 465
+fn grid_to_transform(query: Query<(&Pos, &mut Transform)>) {
+    query.for_each_mut(|(pos, mut transform): (&Pos, Mut<Transform>)| {
+        transform.translation.x = ((pos.x as i32 * 40) - 200) as f32;
+        transform.translation.y = ((pos.y as i32 * 40) - 200) as f32;
+        transform.translation.z = 2.;
+    });
+}
 
 fn mouse_click_system(
     mouse_button_input: Res<Input<MouseButton>>,
-    camera_query: Query<(&GlobalTransform, &Transform, &Camera), With<MainCamera>>,
     windows: Res<Windows>,
     mut my_events: EventWriter<ToggleBlockEvent>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        if let Ok((global_transform, transform, camera)) = camera_query.single() {
-            if let Some(window) = windows.get_primary() {
-                if let Some(cursor_pos) = window.cursor_position() {
-                    let x = (cursor_pos.x as i16 - 180) / 40;
-                    let y = (cursor_pos.y as i16 - 85) / 40;
-                    info!("cursor: {},{} grid: {},{}", cursor_pos.x, cursor_pos.y, x,y);
-                    if let Some(pos) = Pos::try_new(x as i8,y as i8) {
-                        my_events.send(ToggleBlockEvent {
-                           pos
-                        });
-                    }
+        if let Some(window) = windows.get_primary() {
+            if let Some(cursor_pos) = window.cursor_position() {
+                let x = (cursor_pos.x as i32 - 180) / 40;
+                let y = (cursor_pos.y as i32 - 85) / 40;
+
+                if let Some(pos) = Pos::try_new(x as i32, y as i32) {
+                    my_events.send(ToggleBlockEvent { pos });
                 }
             }
         }
@@ -146,11 +134,12 @@ fn toggle_block(
         }
         match blocks.iter().find(|(_, pos)| pos == &&event.pos) {
             None => {
-                commands.spawn_bundle(SpriteBundle {
-                    sprite: Sprite::new(Vec2::new(35., 35.)),
-                    material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
-                    ..Default::default()
-                })
+                commands
+                    .spawn_bundle(SpriteBundle {
+                        sprite: Sprite::new(Vec2::new(35., 35.)),
+                        material: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+                        ..Default::default()
+                    })
                     .insert(event.pos)
                     .insert(Block);
             }
@@ -161,27 +150,8 @@ fn toggle_block(
     }
 }
 
-fn get_camera_position_in_world_coordinates(
-    windows: &Res<Windows>,
-    camera_query: &Query<&GlobalTransform, With<MainCamera>>,
-) -> Option<Vec2> {
-    if let Some(window) = windows.get_primary() {
-        if let Some(cursor_position) = window.cursor_position() {
-            if let Ok(global_transform) = camera_query.single() {
-                let norm = Vec3::new(
-                    cursor_position.x - window.width() / 2.,
-                    cursor_position.y - window.height() / 2.,
-                    0.,
-                );
-
-                let pos = *global_transform * norm;
-                return Some(pos.truncate());
-            }
-        }
-    }
-    None
-}
-
+/// Pathfinding logic
+/// find shortest path between Start and End
 fn pathfinding(
     start: Query<&Pos, With<Start>>,
     end: Query<&Pos, With<End>>,
@@ -198,33 +168,27 @@ fn pathfinding(
     let result = bfs(
         start,
         |p| {
-            let x = p.x as i8;
-            let y = p.y as i8;
-            vec![
-                (x, y - 1),
-                (x, y + 1),
-                (x - 1, y),
-                (x + 1, y),
-            ].into_iter()
-                .filter_map(|(x,y)|Pos::try_new(x,y))
-                .filter(|pos| {
-                    blocks.contains(&pos).not()
-                })
+            let &Pos { x, y } = p;
+            vec![(x, y - 1), (x, y + 1), (x - 1, y), (x + 1, y)]
+                .into_iter()
+                .filter_map(|(x, y)| Pos::try_new(x, y))
+                .filter(|pos| blocks.contains(&pos).not())
         },
-        |p|p == end,
+        |p| p == end,
     );
 
-    for (entity) in paths.iter() {
+    for entity in paths.iter() {
         commands.entity(entity).despawn_recursive();
     }
 
     if let Some(path) = result {
         for pos in path {
-            commands.spawn_bundle(SpriteBundle {
-                sprite: Sprite::new(Vec2::new(5., 5.)),
-                material: materials.add(Color::rgb(1., 1., 1.).into()),
-                ..Default::default()
-            })
+            commands
+                .spawn_bundle(SpriteBundle {
+                    sprite: Sprite::new(Vec2::new(5., 5.)),
+                    material: materials.add(Color::rgb(1., 1., 1.).into()),
+                    ..Default::default()
+                })
                 .insert(pos)
                 .insert(Path);
         }
