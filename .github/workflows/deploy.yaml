@@ -1,0 +1,45 @@
+name: Deploy
+on:
+  push:
+    branches:
+      - master
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Load cargo cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      - name: Build
+        run: cargo build --release --target wasm32-unknown-unknown --no-default-features --features web
+      - name: Get wasm-bindgen
+        uses: jetli/wasm-bindgen-action@v0.1.0
+        with:
+          version: 0.2.69
+      - name: Create .wasm file
+        run: wasm-bindgen --no-typescript --target web --out-name wasm --out-dir target/distribution target/wasm32-unknown-unknown/release/bevy_pathfinding.wasm
+      - name: Copy static files
+        run: cp index.html target/distribution; cp -r assets target/distribution
+      - name: List files to deploy
+        run: tree target/distribution
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.0
+        with:
+          branch: gh-pages
+          folder: target/distribution
+          single-commit: true
