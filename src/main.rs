@@ -28,7 +28,6 @@ fn main() {
     app.run();
 }
 
-struct MainCamera;
 struct Start;
 struct End;
 struct Block;
@@ -45,7 +44,7 @@ struct Pos {
     y: i32,
 }
 impl Pos {
-    fn try_new(x: i32, y: i32) -> Option<Self> {
+    const fn try_new(x: i32, y: i32) -> Option<Self> {
         if x < 0 || y < 0 || x >= SIZE as i32 || y >= SIZE as i32 {
             None
         } else {
@@ -56,11 +55,11 @@ impl Pos {
         }
     }
 
-    fn min(&self) -> bool {
+    const fn min(self) -> bool {
         self.x == 0 && self.y == 0
     }
 
-    fn max(&self) -> bool {
+    const fn max(self) -> bool {
         self.x == SIZE - 1 && self.y == SIZE - 1
     }
 }
@@ -79,10 +78,7 @@ fn setup(
     my_materials.path = Some(materials.add(Color::rgb(1., 1., 1.).into()));
     my_materials.block = Some(materials.add(Color::rgb(0.5, 0.5, 1.0).into()));
 
-    commands
-        .spawn_bundle(OrthographicCameraBundle::new_2d())
-        .insert(MainCamera);
-    commands.spawn_bundle(UiCameraBundle::default());
+    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
 
     commands
         .spawn_bundle(SpriteBundle {
@@ -141,7 +137,7 @@ fn toggle_block(
     mut my_events: EventReader<ToggleBlockEvent>,
     blocks: Query<(Entity, &Pos), With<Block>>,
     mut commands: Commands,
-    mut materials: Res<Materials>,
+    materials: Res<Materials>,
 ) {
     for event in my_events.iter() {
         let event: &ToggleBlockEvent = event;
